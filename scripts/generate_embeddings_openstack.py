@@ -32,6 +32,28 @@ def clean_url(unclean_url):
 class OpenStackDocsMetadataProcessor(MetadataProcessor):
     """Metadata processor for OpenStack documentation."""
 
+    API_REF_SERVICE_MAPPING = {
+        "cinder": "block-storage",
+        "nova": "compute",
+        "trove": "database",
+        "designate": "dns",
+        "keystone": "identity",
+        "glance": "image",
+        "watcher": "resource-optimization",
+        "masakari": "instance-ha",
+        "barbican": "key-manager",
+        "octavia": "load-balancer",
+        "zaqar": "messaging",
+        "neutron": "network",
+        "swift": "object-store",
+        "adjutant": "registration",
+        "heat": "orchestration",
+        "placement": "placement",
+        "blazar": "reservation",
+        "manila": "shared-file-system",
+        # Add more mappings as needed
+    }
+
     def __init__(self, folder_path: str):
         super(OpenStackDocsMetadataProcessor, self).__init__()
         self.folder_path = Path(folder_path)
@@ -45,22 +67,41 @@ class OpenStackDocsMetadataProcessor(MetadataProcessor):
         except ValueError:
             relative_path = path_obj.name
 
-        relative_path = relative_path.as_posix()
+        relative_path_str = relative_path.as_posix()
 
+        # Extract project name from path (first component)
+        path_parts = relative_path_str.split("/")
+        project_name = path_parts[0] if path_parts else ""
+
+        # Check if this is API-Ref documentation
+        if "_api-ref/" in relative_path_str:
+            # This is API-Ref documentation - use different URL pattern
+            # Pattern: project/version_api-ref/... -> /api-ref/service/...
+
+            # Get the service name from mapping
+            service_name = self.API_REF_SERVICE_MAPPING.get(project_name, project_name)
+
+            # Remove project name and version_api-ref prefix
+            # Example: heat/2025.2_api-ref/v1/index.txt -> v1/index.txt
+            api_ref_pattern = re.compile(r"^[^/]+/(?:\d+\.\d+|latest)_api-ref/")
+            remaining_path = api_ref_pattern.sub("", relative_path_str)
+
+            # Replace .txt with .html
+            remaining_path = remaining_path.replace(".txt", ".html")
+            # Build API-Ref URL
+            return f"{self.base_url}/api-ref/{service_name}/{remaining_path}"
+
+        # Regular documentation - existing logic
         # Remove _docs suffix: /cinder/2025.2_docs/ → /cinder/2025.2/
-        relative_path = re.sub(r"/(\d+\.\d+)_docs/", r"/\1/", relative_path)
-
-        # Remove _api-ref suffix: /cinder/2025.2_api-ref/ → /cinder/2025.2/api-ref/
-        relative_path = re.sub(r"/(\d+\.\d+)_api-ref/", r"/\1/api-ref/", relative_path)
+        relative_path_str = re.sub(r"/(\d+\.\d+)_docs/", r"/\1/", relative_path_str)
 
         # Handle "latest" version
-        relative_path = relative_path.replace("/latest_docs/", "/latest/")
-        relative_path = relative_path.replace("/latest_api-ref/", "/latest/api-ref/")
+        relative_path_str = relative_path_str.replace("/latest_docs/", "/latest/")
 
         # Replace .txt with .html
-        relative_path = relative_path.replace(".txt", ".html")
+        relative_path_str = relative_path_str.replace(".txt", ".html")
 
-        return f"{self.base_url}/{relative_path}"
+        return f"{self.base_url}/{relative_path_str}"
 
 
 class RedHatDocsMetadataProcessor(MetadataProcessor):
@@ -216,11 +257,26 @@ if __name__ == "__main__":
         required=False,
         help="Choose one or more OKP content types, or 'all' for all of them",
     )
+    parser.add_argument(
+        "-il",
+        "--ignore-list",
+        type=str,
+        nargs="?",
+        const="",
+        required=False,
+        default="",
+        help="Comma-separated list of document titles to ignore URL validation for",
+    )
 
     # Change the default chunking mode from 'text' to 'markdown'
     parser.set_defaults(doc_type="markdown")
 
     args = parser.parse_args()
+
+    # Parse ignore list from command-line argument
+    ignore_list = [
+        title.strip() for title in args.ignore_list.split(",") if title.strip()
+    ]
 
     if not any([args.folder, args.rhoso_folder, args.okp_folder]):
         print(
@@ -252,6 +308,7 @@ if __name__ == "__main__":
                 ".txt",
             ],
             unreachable_action=args.unreachable_action,
+            ignore_list=ignore_list,
         )
 
     # Process the RHOSO documents, if provided
@@ -265,6 +322,7 @@ if __name__ == "__main__":
                 ".txt",
             ],
             unreachable_action=args.unreachable_action,
+            ignore_list=ignore_list,
         )
 
     # Process the OKP files, if provided
@@ -304,6 +362,7 @@ if __name__ == "__main__":
             ],
             file_extractor={".md": MarkdownReader()},
             unreachable_action=args.unreachable_action,
+            ignore_list=ignore_list,
         )
 
     # Save to the output directory
