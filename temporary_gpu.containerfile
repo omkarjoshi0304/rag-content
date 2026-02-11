@@ -137,6 +137,7 @@ ENV LD_LIBRARY_PATH=""
 ENV OKP_CONTENT=$OKP_CONTENT
 ENV BUILD_OCP_DOCS=$BUILD_OCP_DOCS
 
+USER 0
 WORKDIR /rag-content
 
 RUN python -c "import torch, sys; available=torch.cuda.is_available(); print(f'CUDA is available: {available}'); sys.exit(0 if available else 1)"; \
