@@ -220,7 +220,7 @@ deps =
 
         if [ -n "$api_dir" ]; then
             echo "Building API-Ref documentation for $project using $api_dir..."
-            
+
             if ! grep -q "text-api-ref" tox.ini; then
                 # Adjust the target if it's api-guide instead of api-ref
                 local adjusted_target
