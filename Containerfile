@@ -65,41 +65,10 @@ RUN if [ ! -z "$RHOSO_DOCS_GIT_URL" ]; then \
         fi \
     fi
 
-
-# -- Stage 1c: Generate OpenStack Operators plaintext formatted documentation  ----------
-FROM registry.access.redhat.com/ubi9/python-311 as docs-base-operators
-
-ARG BUILD_OPERATORS_DOCS=false
-ARG OPERATORS_REPO_URL=https://github.com/openstack-k8s-operators/openstack-operator.git
-ARG OPERATORS_BRANCH=main
-
-ENV OPERATORS_REPO_URL=$OPERATORS_REPO_URL
-ENV OPERATORS_BRANCH=$OPERATORS_BRANCH
-
-USER 0
-WORKDIR /rag-content
-
-COPY ./scripts ./scripts
-
-# install asciidoctor and pandoc for converting AsciiDoc to markdown
-RUN if [ "$BUILD_OPERATORS_DOCS" = "true" ]; then \
-      dnf install -y ruby && \
-      dnf install -y https://dl.fedoraproject.org/pub/epel/epel-release-latest-9.noarch.rpm && \
-      dnf install -y pandoc && \
-      gem install asciidoctor && \
-      ./scripts/get_openstack_operators_docs.sh; \
-    else \
-      mkdir -p /rag-content/openstack-operators-docs-markdown; \
-    fi
-
-
-
 # -- Stage 2: Compute embeddings for the doc chunks ---------------------------
 FROM quay.io/lightspeed-core/rag-content-${FLAVOR}:latest as lightspeed-core-rag-builder
 COPY --from=docs-base-upstream /rag-content /rag-content
 COPY --from=docs-base-downstream /rag-content /rag-content
-# Limit what we copy to make it faster
-COPY --from=docs-base-operators /rag-content/openstack-operators-docs-markdown /rag-content/openstack-operators-docs-markdown
 
 ARG FLAVOR=cpu
 ARG BUILD_UPSTREAM_DOCS=true
@@ -136,12 +105,12 @@ RUN if [ "$FLAVOR" == "gpu" ]; then \
         if [ ! -z "$RHOSO_DOCS_EXTRA_DOCS" ]; then \
             FOLDER_ARG="$FOLDER_ARG --extra-folder $RHOSO_DOCS_EXTRA_DOCS"; \
         fi; \
+        if [ "$BUILD_OPERATORS_DOCS" = "true" ]; then \
+            FOLDER_ARG="$FOLDER_ARG --operators-folder rag-docs/openstack-operators-docs-markdown"; \
+        fi; \
     fi && \
     if [ "$BUILD_OKP_CONTENT" = "true" ]; then \
         FOLDER_ARG="$FOLDER_ARG --okp-folder ./okp-content --okp-content ${OKP_CONTENT}"; \
-    fi && \
-    if [ "$BUILD_OPERATORS_DOCS" = "true" ]; then \
-        FOLDER_ARG="$FOLDER_ARG --operators-folder openstack-operators-docs-markdown"; \
     fi && \
     python ./scripts/generate_embeddings_openstack.py \
     --output ./vector_db/ \
