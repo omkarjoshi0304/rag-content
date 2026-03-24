@@ -143,23 +143,26 @@ RUN if [ "$FLAVOR" == "gpu" ]; then \
     if [ "$BUILD_OPERATORS_DOCS" = "true" ]; then \
         FOLDER_ARG="$FOLDER_ARG --operators-folder openstack-operators-docs-markdown"; \
     fi && \
-    python ./scripts/generate_embeddings_openstack.py \
-    --output ./vector_db/ \
-    --model-dir embeddings_model \
-    --model-name ${EMBEDDING_MODEL} \
-    --index ${INDEX_NAME} \
-    --workers ${NUM_WORKERS} \
-    --unreachable-action ${DOCS_LINK_UNREACHABLE_ACTION} \
-    --ignore-list ${RHOSO_IGNORE_LIST} \
-    --vector-store-type $VECTOR_DB_TYPE \
-    --openstack-version ${OS_VERSION} \
-    ${FOLDER_ARG}
+    if [ -n "$FOLDER_ARG" ]; then \
+        python ./scripts/generate_embeddings_openstack.py \
+        --output ./vector_db/ \
+        --model-dir embeddings_model \
+        --model-name ${EMBEDDING_MODEL} \
+        --index ${INDEX_NAME} \
+        --workers ${NUM_WORKERS} \
+        --unreachable-action ${DOCS_LINK_UNREACHABLE_ACTION} \
+        --ignore-list ${RHOSO_IGNORE_LIST} \
+        --vector-store-type $VECTOR_DB_TYPE \
+        --openstack-version ${OS_VERSION} \
+        ${FOLDER_ARG}; \
+    else \
+        echo "No OpenStack/RHOSO doc sources enabled, skipping embedding generation"; \
+        mkdir -p ./vector_db; \
+    fi
 
-# Compute embeddings for the OCP docs
-# For the latest version we need to set the index as latest unless it's one of the soported ones
-# If we only have supported versions then create latest symlink
-# Condition checks for the script to run because that is copied from the OLS repo on download
-RUN if [ "$BUILD_OCP_DOCS" = "true" ] && [ -f "/rag-content/rag-docs/ocp-product-docs-plaintext/ocp_generate_embeddings.py" ]; then \
+# Compute embeddings for the OCP docs using the LCORE-based script
+# This ensures OCP docs are compatible with both faiss and llamastack vector stores
+RUN if [ "$BUILD_OCP_DOCS" = "true" ] && [ -d "/rag-content/rag-docs/ocp-product-docs-plaintext" ]; then \
         LATEST_VERSION="$(basename $(ls -d1 rag-docs/ocp-product-docs-plaintext/4.* | sort -V | tail -n 1))" && \
         echo "Latest version is ${LATEST_VERSION}" && \
         set -e && for OCP_VERSION in $(cd rag-docs/ocp-product-docs-plaintext && ls -d1 4*); do \
@@ -170,15 +173,19 @@ RUN if [ "$BUILD_OCP_DOCS" = "true" ] && [ -f "/rag-content/rag-docs/ocp-product
                 echo "Version ${OCP_VERSION} is not the latest version"; \
                 VERSION_POSTFIX="${OCP_VERSION}"; \
             fi && \
-            python ./rag-docs/ocp-product-docs-plaintext/ocp_generate_embeddings.py \
-                -f ./rag-docs/ocp-product-docs-plaintext/${OCP_VERSION} \
-                -r ./rag-docs/ocp-product-docs-plaintext/common_alerts \
-                -md embeddings_model \
-                -mn ${EMBEDDING_MODEL} \
-                -o ocp_vector_db/ocp_${VERSION_POSTFIX} \
-                -i ocp-product-docs-$(echo $VERSION_POSTFIX | sed 's/\./_/g') \
-                -v ${OCP_VERSION} \
-                -hb $HERMETIC; \
+            OCP_ARGS="--ocp-folder ./rag-docs/ocp-product-docs-plaintext/${OCP_VERSION} --ocp-version ${OCP_VERSION}" && \
+            if [ -d "./rag-docs/ocp-product-docs-plaintext/common_alerts" ]; then \
+                OCP_ARGS="$OCP_ARGS --runbooks-folder ./rag-docs/ocp-product-docs-plaintext/common_alerts"; \
+            fi && \
+            python ./scripts/generate_embeddings_openstack.py \
+                ${OCP_ARGS} \
+                --output ocp_vector_db/ocp_${VERSION_POSTFIX} \
+                --model-dir embeddings_model \
+                --model-name ${EMBEDDING_MODEL} \
+                --index ocp-product-docs-$(echo $VERSION_POSTFIX | sed 's/\./_/g') \
+                --workers ${NUM_WORKERS} \
+                --unreachable-action ${DOCS_LINK_UNREACHABLE_ACTION} \
+                --vector-store-type $VECTOR_DB_TYPE; \
         done && \
         if [[ -d ocp_vector_db/ocp_latest ]]; then \
             ln -s -r ocp_vector_db/ocp_latest ocp_vector_db/ocp_${LATEST_VERSION}; \

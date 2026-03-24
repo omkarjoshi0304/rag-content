@@ -23,6 +23,9 @@ logging.basicConfig(
 
 OKP_CONTENT_TYPES = ["erratas", "docs", "pages"]
 
+OCP_DOCS_ROOT_URL = "https://docs.openshift.com/container-platform/"
+RUNBOOKS_ROOT_URL = "https://github.com/openshift/runbooks/blob/master/alerts"
+
 
 def clean_url(unclean_url):
     unclean_chars = "[()]"
@@ -174,6 +177,54 @@ class OpenStackOperatorMetadataProcessor(MetadataProcessor):
 
 
 #
+# OCP (OpenShift Container Platform) metadata processors
+#
+
+
+class OCPDocsMetadataProcessor(MetadataProcessor):
+    """Metadata processor for OCP (OpenShift Container Platform) documentation."""
+
+    def __init__(self, folder_path: str, ocp_version: str):
+        super(OCPDocsMetadataProcessor, self).__init__()
+        self.folder_path = Path(folder_path).resolve()
+        self.ocp_version = ocp_version
+
+    def url_function(self, path: str) -> str:
+        """Generate the URL for an OCP document based on its file path."""
+        path_obj = Path(path).resolve()
+        try:
+            relative_path = path_obj.relative_to(self.folder_path)
+        except ValueError:
+            relative_path = Path(path_obj.name)
+
+        relative_path_str = relative_path.as_posix()
+
+        # Remove .txt extension and add .html
+        if relative_path_str.endswith(".txt"):
+            relative_path_str = relative_path_str[:-4] + ".html"
+
+        return f"{OCP_DOCS_ROOT_URL}{self.ocp_version}/{relative_path_str}"
+
+
+class RunbookMetadataProcessor(MetadataProcessor):
+    """Metadata processor for OpenShift runbook alerts."""
+
+    def __init__(self, folder_path: str):
+        super(RunbookMetadataProcessor, self).__init__()
+        self.folder_path = Path(folder_path).resolve()
+
+    def url_function(self, path: str) -> str:
+        """Generate the URL for a runbook based on its file path."""
+        path_obj = Path(path).resolve()
+        try:
+            relative_path = path_obj.relative_to(self.folder_path)
+        except ValueError:
+            relative_path = Path(path_obj.name)
+
+        return f"{RUNBOOKS_ROOT_URL}/{relative_path.as_posix()}"
+
+
+#
 # Functions related to OpenStack OKP
 #
 
@@ -309,6 +360,28 @@ if __name__ == "__main__":
         help="Comma-separated list of document titles to ignore URL validation for",
     )
     parser.add_argument(
+        "-ocpf",
+        "--ocp-folder",
+        type=Path,
+        required=False,
+        help="Directory containing the plain text OCP documentation",
+    )
+    parser.add_argument(
+        "-ocpv",
+        "--ocp-version",
+        type=str,
+        required=False,
+        default="4.18",
+        help="Version of the OCP documentation to process",
+    )
+    parser.add_argument(
+        "-rbf",
+        "--runbooks-folder",
+        type=Path,
+        required=False,
+        help="Directory containing the runbook alert files",
+    )
+    parser.add_argument(
         "-ef",
         "--extra-folder",
         type=Path,
@@ -334,11 +407,13 @@ if __name__ == "__main__":
             args.rhoso_folder,
             args.okp_folder,
             args.operators_folder,
+            args.ocp_folder,
             args.extra_folder,
         ]
     ):
         print(
-            'Error: Either the "--folder" and/or "--rhoso-folder" and/or "--okp-folder" and/or "--operators-folder" and/or "--extra-folder" options '
+            'Error: At least one of "--folder", "--rhoso-folder", "--okp-folder", '
+            '"--operators-folder", "--ocp-folder", or "--extra-folder" options '
             "must be provided",
             file=sys.stderr,
         )
@@ -410,6 +485,31 @@ if __name__ == "__main__":
         document_processor.process(
             str(args.operators_folder),
             metadata=OpenStackOperatorMetadataProcessor(args.operators_folder),
+            required_exts=[
+                ".md",
+            ],
+            file_extractor={".md": MarkdownReader()},
+            unreachable_action=args.unreachable_action,
+            ignore_list=ignore_list,
+        )
+
+    # Process the OCP documents, if provided
+    if args.ocp_folder:
+        document_processor.process(
+            str(args.ocp_folder),
+            metadata=OCPDocsMetadataProcessor(args.ocp_folder, args.ocp_version),
+            required_exts=[
+                ".txt",
+            ],
+            unreachable_action=args.unreachable_action,
+            ignore_list=ignore_list,
+        )
+
+    # Process the runbooks, if provided
+    if args.runbooks_folder:
+        document_processor.process(
+            str(args.runbooks_folder),
+            metadata=RunbookMetadataProcessor(args.runbooks_folder),
             required_exts=[
                 ".md",
             ],
