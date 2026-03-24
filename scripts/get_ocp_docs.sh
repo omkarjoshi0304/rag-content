@@ -56,8 +56,7 @@ IFS=' ' read -r -a ocp_versions <<< "$OCP_VERSIONS"
 
 mkdir -p "${OUTPUT_DIR_NAME}"
 
-# Copy their script instead of implementing it ourselves
-mv -f lightspeed-rag-content/scripts/generate_embeddings.py "${OUTPUT_DIR_NAME}/ocp_generate_embeddings.py"
+# Copy runbooks alerts for processing
 rm -rf "${OUTPUT_DIR_NAME}/common_alerts"
 mv lightspeed-rag-content/runbooks/alerts "${OUTPUT_DIR_NAME}/common_alerts"
 
