@@ -23,9 +23,6 @@ logging.basicConfig(
 
 OKP_CONTENT_TYPES = ["erratas", "docs", "pages"]
 
-OCP_DOCS_ROOT_URL = "https://docs.openshift.com/container-platform/"
-RUNBOOKS_ROOT_URL = "https://github.com/openshift/runbooks/blob/master/alerts"
-
 
 def clean_url(unclean_url):
     unclean_chars = "[()]"
@@ -188,6 +185,7 @@ class OCPDocsMetadataProcessor(MetadataProcessor):
         super(OCPDocsMetadataProcessor, self).__init__()
         self.folder_path = Path(folder_path).resolve()
         self.ocp_version = ocp_version
+        self.base_url = "https://docs.openshift.com/container-platform"
 
     def url_function(self, path: str) -> str:
         """Generate the URL for an OCP document based on its file path."""
@@ -197,13 +195,9 @@ class OCPDocsMetadataProcessor(MetadataProcessor):
         except ValueError:
             relative_path = Path(path_obj.name)
 
-        relative_path_str = relative_path.as_posix()
+        relative_path = relative_path.with_suffix(".html")
 
-        # Remove .txt extension and add .html
-        if relative_path_str.endswith(".txt"):
-            relative_path_str = relative_path_str[:-4] + ".html"
-
-        return f"{OCP_DOCS_ROOT_URL}{self.ocp_version}/{relative_path_str}"
+        return f"{self.base_url}/{self.ocp_version}/{relative_path.as_posix()}"
 
 
 class RunbookMetadataProcessor(MetadataProcessor):
@@ -212,6 +206,7 @@ class RunbookMetadataProcessor(MetadataProcessor):
     def __init__(self, folder_path: str):
         super(RunbookMetadataProcessor, self).__init__()
         self.folder_path = Path(folder_path).resolve()
+        self.base_url = "https://github.com/openshift/runbooks/blob/master/alerts"
 
     def url_function(self, path: str) -> str:
         """Generate the URL for a runbook based on its file path."""
@@ -221,7 +216,7 @@ class RunbookMetadataProcessor(MetadataProcessor):
         except ValueError:
             relative_path = Path(path_obj.name)
 
-        return f"{RUNBOOKS_ROOT_URL}/{relative_path.as_posix()}"
+        return f"{self.base_url}/{relative_path.as_posix()}"
 
 
 #
