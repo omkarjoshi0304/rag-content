@@ -181,11 +181,12 @@ class OpenStackOperatorMetadataProcessor(MetadataProcessor):
 class OCPDocsMetadataProcessor(MetadataProcessor):
     """Metadata processor for OCP (OpenShift Container Platform) documentation."""
 
+    base_url = "https://docs.openshift.com/container-platform"
+
     def __init__(self, folder_path: str, ocp_version: str):
         super(OCPDocsMetadataProcessor, self).__init__()
         self.folder_path = Path(folder_path).resolve()
         self.ocp_version = ocp_version
-        self.base_url = "https://docs.openshift.com/container-platform"
 
     def url_function(self, path: str) -> str:
         """Generate the URL for an OCP document based on its file path."""
@@ -203,10 +204,11 @@ class OCPDocsMetadataProcessor(MetadataProcessor):
 class RunbookMetadataProcessor(MetadataProcessor):
     """Metadata processor for OpenShift runbook alerts."""
 
+    base_url = "https://github.com/openshift/runbooks/blob/master/alerts"
+
     def __init__(self, folder_path: str):
         super(RunbookMetadataProcessor, self).__init__()
         self.folder_path = Path(folder_path).resolve()
-        self.base_url = "https://github.com/openshift/runbooks/blob/master/alerts"
 
     def url_function(self, path: str) -> str:
         """Generate the URL for a runbook based on its file path."""
@@ -500,6 +502,7 @@ if __name__ == "__main__":
             required_exts=[
                 ".txt",
             ],
+            file_extractor={".txt": MarkdownReader()},
             unreachable_action=args.unreachable_action,
             ignore_list=ignore_list,
         )

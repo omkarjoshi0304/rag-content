@@ -111,6 +111,10 @@ RUN if [ "$FLAVOR" == "gpu" ]; then \
     if [ "$BUILD_OKP_CONTENT" = "true" ]; then \
         FOLDER_ARG="$FOLDER_ARG --okp-folder ./okp-content --okp-content ${OKP_CONTENT}"; \
     fi && \
+    if [ -z "$FOLDER_ARG" ] && [ "$BUILD_OCP_DOCS" != "true" ]; then \
+        echo "Error: No documentation sources enabled"; \
+        exit 1; \
+    fi && \
     if [ -n "$FOLDER_ARG" ]; then \
         python ./scripts/generate_embeddings_openstack.py \
         --output ./vector_db/ \
@@ -124,7 +128,7 @@ RUN if [ "$FLAVOR" == "gpu" ]; then \
         --openstack-version ${OS_VERSION} \
         ${FOLDER_ARG}; \
     else \
-        echo "No OpenStack/RHOSO doc sources enabled, skipping embedding generation"; \
+        echo "No OpenStack/RHOSO doc sources, building OCP-only RAG"; \
         mkdir -p ./vector_db; \
     fi
 
