@@ -397,11 +397,15 @@ if __name__ == "__main__":
                 file=sys.stderr,
             )
             sys.exit(1)
+        # NOTE(lucas): unreachable_action for extra_docs is marked as
+        # "warn" always because extra_docs are meant for SME and personal
+        # notes/documents. Having it to "fail" will cause the build to
+        # fail since most of these documents do not have any valid link.
         document_processor.process(
             str(extra),
             metadata=ExtraDocsMetadataProcessor(extra),
             required_exts=[".md", ".txt"],
-            unreachable_action=args.unreachable_action,
+            unreachable_action="warn",
             ignore_list=ignore_list,
         )
 
