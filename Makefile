@@ -24,7 +24,6 @@ RHOSO_IGNORE_LIST              ?= ""
 BUILD_OPERATORS_DOCS           ?= false
 
 CONTAINERFILE                  ?= "./Containerfile"
-HERMETIC                       ?= false
 
 # Define behavior based on the flavor
 ifeq ($(FLAVOR),cpu)
@@ -58,7 +57,6 @@ build-image-os: ## Build a openstack rag-content container image
 	--build-arg RHOSO_IGNORE_LIST='$(RHOSO_IGNORE_LIST)' \
 	--build-arg BUILD_OCP_DOCS=$(BUILD_OCP_DOCS) \
 	--build-arg RHOSO_DOCS_EXTRA_DOCS=$(RHOSO_DOCS_EXTRA_DOCS) \
-	--build-arg HERMETIC=$(HERMETIC) \
 	--build-arg BUILD_OPERATORS_DOCS=$(BUILD_OPERATORS_DOCS) \
 	$(BUILD_GPU_ARGS) .
 
